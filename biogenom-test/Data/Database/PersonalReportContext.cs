@@ -13,6 +13,11 @@ public class PersonalReportContext : DbContext
     public DbSet<SupplementKit> SupplementKits { get; set; }
     public DbSet<SupplementKitNutrient> SupplementKitNutrients { get; set; }
 
+    public PersonalReportContext(DbContextOptions<PersonalReportContext> options) 
+        : base(options) 
+    {
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         NutrientSeeder.SeedData(modelBuilder);
