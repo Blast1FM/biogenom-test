@@ -1,5 +1,6 @@
 using biogenom_test.Data.DTO;
 using biogenom_test.Services;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace biogenom_test.Controllers;
@@ -25,7 +26,7 @@ public class PersonalReportController : ControllerBase
         {
             return Ok();
         }
-        return BadRequest(result.ErrorMessage);
+        return BadRequest($"Failed to update consumption:{result.ErrorMessage}");
     }
 
     [HttpPost("recommendedintake")]
@@ -36,7 +37,7 @@ public class PersonalReportController : ControllerBase
         {
             return Ok();
         }
-        return BadRequest(result.ErrorMessage);
+        return BadRequest($"Failed to update recommended intake:{result.ErrorMessage}");
     }
 
     [HttpGet]
@@ -45,13 +46,13 @@ public class PersonalReportController : ControllerBase
         var nutrientResult = await _personalReportService.GetNutrientReport();
         if (!nutrientResult.IsSuccess)
         {
-            return BadRequest(nutrientResult.ErrorMessage);
+            return UnprocessableEntity($"Unable to get nutrient report: {nutrientResult.ErrorMessage}");
         }
 
         var supplementResult = await _recommendationService.GetSupplementRecommendations();
         if (!supplementResult.IsSuccess)
         {
-            return BadRequest(supplementResult.ErrorMessage);
+            return UnprocessableEntity($"Unable to get supplement kit recommendations: {supplementResult.ErrorMessage}");
         }
 
         var report = new PersonalReport
