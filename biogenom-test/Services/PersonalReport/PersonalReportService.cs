@@ -19,7 +19,7 @@ public class PersonalReportService : IPersonalReportService
 
     public async Task<OperationResult<Unit>> UpdateConsumptionData(List<ConsumptionUpdate> consumptionData)
     {
-        _logger.LogDebug("Starting UpdateConsumptionData with {Count} items.", consumptionData?.Count ?? 0);
+        _logger.LogDebug($"Starting UpdateConsumptionData with {consumptionData?.Count ?? 0} items.");
         if (consumptionData == null || !consumptionData.Any())
         {
             _logger.LogWarning("Input list is null or empty.");
@@ -28,7 +28,7 @@ public class PersonalReportService : IPersonalReportService
 
         // Validate NutrientIDs
         var nutrientIds = consumptionData.Select(cd => cd.NutrientId).ToHashSet();
-        _logger.LogDebug("Validating {Count} nutrient IDs.", nutrientIds.Count);
+        _logger.LogDebug($"Validating {nutrientIds.Count} nutrient IDs.");
         var validNutrientIds = await _context.Nutrients
             .Where(n => nutrientIds.Contains(n.NutrientID))
             .Select(n => n.NutrientID)
@@ -42,7 +42,6 @@ public class PersonalReportService : IPersonalReportService
             return OperationResult<Unit>.Failure($"Invalid Nutrient IDs: {string.Join(", ", invalidIds)}");
         }
 
-        // Validate ConsumedAmount
         if (consumptionData.Any(cd => cd.ConsumedAmount < 0))
         {
             _logger.LogWarning("Negative consumed amounts detected.");
@@ -52,21 +51,17 @@ public class PersonalReportService : IPersonalReportService
         try
         {
             _logger.LogDebug("Clearing existing CurrentConsumption records.");
-            // Clear existing records
             await _context.CurrentConsumptions.ExecuteDeleteAsync();
 
-            // Map DTOs to entities
             var newConsumptions = consumptionData.Select(cd => new CurrentConsumption
             {
                 NutrientID = cd.NutrientId,
                 ConsumedAmount = cd.ConsumedAmount
             }).ToList();
 
-            _logger.LogDebug("Adding {Count} new CurrentConsumption records.", newConsumptions.Count);
-            // Add new records
+            _logger.LogDebug($"Adding {newConsumptions.Count} new CurrentConsumption records.");
             await _context.CurrentConsumptions.AddRangeAsync(newConsumptions);
 
-            // Save changes
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("UpdateConsumptionData completed successfully.");
@@ -86,7 +81,7 @@ public class PersonalReportService : IPersonalReportService
 
    public async Task<OperationResult<Unit>> UpdateRecommendedIntake(List<RecommendedIntakeUpdate> intakeData)
     {
-        _logger.LogInformation("Starting UpdateRecommendedIntake with {Count} items.", intakeData?.Count ?? 0);
+        _logger.LogInformation($"Starting UpdateRecommendedIntake with {intakeData?.Count ?? 0} items.");
 
         if (intakeData == null || !intakeData.Any())
         {
@@ -111,18 +106,16 @@ public class PersonalReportService : IPersonalReportService
         var invalidIds = nutrientIds.Except(validNutrientIds).ToList();
         if (invalidIds.Any())
         {
-            _logger.LogWarning("Invalid Nutrient IDs found: {InvalidIds}", string.Join(", ", invalidIds));
+            _logger.LogWarning($"Invalid Nutrient IDs found: {string.Join(", ", invalidIds)}");
             return OperationResult<Unit>.Failure($"Invalid Nutrient IDs: {string.Join(", ", invalidIds)}");
         }
 
-        // Check for duplicates
         if (intakeData.Count > nutrientIds.Count)
         {
             _logger.LogWarning("Duplicate nutrient IDs detected in input data.");
             return OperationResult<Unit>.Failure("Too many nutrients listed.");
         }
 
-        // Validate RecommendedAmount
         if (intakeData.Any(id => id.RecommendedAmount < 0))
         {
             _logger.LogWarning("Negative recommended amounts detected.");
@@ -138,12 +131,12 @@ public class PersonalReportService : IPersonalReportService
             {
                 if (existingIntakes.TryGetValue(update.NutrientId, out var existing))
                 {
-                    _logger.LogDebug("Updating RecommendedIntake for Nutrient ID: {NutrientId}", update.NutrientId);
+                    _logger.LogDebug($"Updating RecommendedIntake for Nutrient ID: {update.NutrientId}");
                     existing.RecommendedAmount = update.RecommendedAmount;
                 }
                 else
                 {
-                    _logger.LogDebug("Adding new RecommendedIntake for Nutrient ID: {NutrientId}", update.NutrientId);
+                    _logger.LogDebug($"Adding new RecommendedIntake for Nutrient ID: {update.NutrientId}");
                     var newIntake = new RecommendedIntake
                     {
                         NutrientID = update.NutrientId,
@@ -183,7 +176,7 @@ public class PersonalReportService : IPersonalReportService
                 .Where(n => n.RecommendedIntake != null)
                 .ToListAsync();
 
-            _logger.LogDebug("Creating NutrientReportItem DTOs for {Count} nutrients.", nutrients.Count);
+            _logger.LogDebug($"Creating NutrientReportItem DTOs for {nutrients.Count} nutrients.");
             var reportItems = nutrients.Select(n => new NutrientReportItem
             {
                 NutrientId = n.NutrientID,

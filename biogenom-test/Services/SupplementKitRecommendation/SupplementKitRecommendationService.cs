@@ -59,7 +59,7 @@ namespace biogenom_test.Services
                     _logger.LogDebug("No supplement kits found. Returning empty recommendations.");
                     return OperationResult<List<SupplementKitReportItem>>.Success(new List<SupplementKitReportItem>());
                 }
-                _logger.LogDebug("Retrieved {Count} supplement kits.", kits.Count);
+                _logger.LogDebug($"Retrieved {kits.Count} supplement kits.");
 
                 // Initialize total intake (T) as current consumption
                 var T = new Dictionary<Guid, decimal>(C);
@@ -94,7 +94,7 @@ namespace biogenom_test.Services
 
                     if (bestKit != null && minDeviation < currentDeviation)
                     {
-                        _logger.LogDebug("Selected kit {KitName} with deviation {Deviation}.", bestKit.Name, minDeviation);
+                        _logger.LogDebug($"Selected kit {bestKit.Name} with deviation {minDeviation}.");
                         selectedKits.Add(bestKit);
                         availableKits.Remove(bestKit);
                         T = new Dictionary<Guid, decimal>(T);
