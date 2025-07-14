@@ -16,12 +16,18 @@ public class Program
         builder.Services.AddControllers();
         builder.Services.AddDbContext<PersonalReportContext>(options =>
             options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-        builder.Services.AddScoped<PersonalReportService>();
-        builder.Services.AddScoped<SupplementKitRecommendationService>();
+        builder.Services.AddScoped<IPersonalReportService, PersonalReportService>();
+        builder.Services.AddScoped<ISupplementKitRecommendationService, SupplementKitRecommendationService>();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
 
         var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<PersonalReportContext>();
+            context.Database.Migrate();
+        }
 
         app.MapOpenApi();
         app.UseSwaggerUI(options =>

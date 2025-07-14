@@ -9,21 +9,26 @@ namespace biogenom_test.Services;
 public class PersonalReportService : IPersonalReportService
 {
     private readonly PersonalReportContext _context;
+    private readonly ILogger<PersonalReportService> _logger;
 
-    public PersonalReportService(PersonalReportContext context)
+    public PersonalReportService(PersonalReportContext context, ILogger<PersonalReportService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<OperationResult<Unit>> UpdateConsumptionData(List<ConsumptionUpdate> consumptionData)
     {
+        _logger.LogDebug("Starting UpdateConsumptionData with {Count} items.", consumptionData?.Count ?? 0);
         if (consumptionData == null || !consumptionData.Any())
         {
+            _logger.LogWarning("Input list is null or empty.");
             return OperationResult<Unit>.Failure("Input list is null or empty.");
         }
 
         // Validate NutrientIDs
         var nutrientIds = consumptionData.Select(cd => cd.NutrientId).ToHashSet();
+        _logger.LogDebug("Validating {Count} nutrient IDs.", nutrientIds.Count);
         var validNutrientIds = await _context.Nutrients
             .Where(n => nutrientIds.Contains(n.NutrientID))
             .Select(n => n.NutrientID)
@@ -33,17 +38,20 @@ public class PersonalReportService : IPersonalReportService
 
         if (invalidIds.Any())
         {
+            _logger.LogWarning("Invalid Nutrient IDs found: {InvalidIds}", string.Join(", ", invalidIds));
             return OperationResult<Unit>.Failure($"Invalid Nutrient IDs: {string.Join(", ", invalidIds)}");
         }
 
         // Validate ConsumedAmount
         if (consumptionData.Any(cd => cd.ConsumedAmount < 0))
         {
+            _logger.LogWarning("Negative consumed amounts detected.");
             return OperationResult<Unit>.Failure("Consumed amounts cannot be negative.");
         }
 
         try
         {
+            _logger.LogDebug("Clearing existing CurrentConsumption records.");
             // Clear existing records
             await _context.CurrentConsumptions.ExecuteDeleteAsync();
 
@@ -54,38 +62,47 @@ public class PersonalReportService : IPersonalReportService
                 ConsumedAmount = cd.ConsumedAmount
             }).ToList();
 
+            _logger.LogDebug("Adding {Count} new CurrentConsumption records.", newConsumptions.Count);
             // Add new records
             await _context.CurrentConsumptions.AddRangeAsync(newConsumptions);
 
             // Save changes
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("UpdateConsumptionData completed successfully.");
             return OperationResult<Unit>.Success(Unit.Value);
         }
         catch (DbUpdateException ex)
         {
+            _logger.LogError(ex, "Database update failed in UpdateConsumptionData.");
             return OperationResult<Unit>.Failure($"Database update failed: {ex.InnerException?.Message ?? ex.Message}");
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An unexpected error occurred in UpdateConsumptionData.");
             return OperationResult<Unit>.Failure($"An unexpected error occurred: {ex.Message}");
         }
     }
 
-    public async Task<OperationResult<Unit>> UpdateRecommendedIntake(List<RecommendedIntakeUpdate> intakeData)
+   public async Task<OperationResult<Unit>> UpdateRecommendedIntake(List<RecommendedIntakeUpdate> intakeData)
     {
+        _logger.LogInformation("Starting UpdateRecommendedIntake with {Count} items.", intakeData?.Count ?? 0);
+
         if (intakeData == null || !intakeData.Any())
         {
+            _logger.LogWarning("Input list is null or empty.");
             return OperationResult<Unit>.Failure("Input list is null or empty.");
         }
 
         if (intakeData.Any(id => id == null))
         {
+            _logger.LogWarning("Input list contains null items.");
             return OperationResult<Unit>.Failure("Input list contains null items.");
         }
 
         // Validate NutrientIDs
         var nutrientIds = intakeData.Select(id => id.NutrientId).Distinct().ToList();
+        _logger.LogDebug("Validating {Count} distinct nutrient IDs.", nutrientIds.Count);
         var validNutrientIds = await _context.Nutrients
             .Where(n => nutrientIds.Contains(n.NutrientID))
             .Select(n => n.NutrientID)
@@ -94,36 +111,39 @@ public class PersonalReportService : IPersonalReportService
         var invalidIds = nutrientIds.Except(validNutrientIds).ToList();
         if (invalidIds.Any())
         {
+            _logger.LogWarning("Invalid Nutrient IDs found: {InvalidIds}", string.Join(", ", invalidIds));
             return OperationResult<Unit>.Failure($"Invalid Nutrient IDs: {string.Join(", ", invalidIds)}");
         }
 
         // Check for duplicates
         if (intakeData.Count > nutrientIds.Count)
         {
+            _logger.LogWarning("Duplicate nutrient IDs detected in input data.");
             return OperationResult<Unit>.Failure("Too many nutrients listed.");
         }
 
         // Validate RecommendedAmount
         if (intakeData.Any(id => id.RecommendedAmount < 0))
         {
+            _logger.LogWarning("Negative recommended amounts detected.");
             return OperationResult<Unit>.Failure("Recommended amounts cannot be negative.");
         }
 
         try
         {
-            // Load existing recommended intakes into a dictionary for quick lookup
+            _logger.LogDebug("Loading existing RecommendedIntake records.");
             var existingIntakes = await _context.RecommendedIntakes.ToDictionaryAsync(ri => ri.NutrientID);
 
             foreach (var update in intakeData)
             {
                 if (existingIntakes.TryGetValue(update.NutrientId, out var existing))
                 {
-                    // Update existing record
+                    _logger.LogDebug("Updating RecommendedIntake for Nutrient ID: {NutrientId}", update.NutrientId);
                     existing.RecommendedAmount = update.RecommendedAmount;
                 }
                 else
                 {
-                    // Add new record
+                    _logger.LogDebug("Adding new RecommendedIntake for Nutrient ID: {NutrientId}", update.NutrientId);
                     var newIntake = new RecommendedIntake
                     {
                         NutrientID = update.NutrientId,
@@ -133,33 +153,37 @@ public class PersonalReportService : IPersonalReportService
                 }
             }
 
-            // Save changes to the database
             await _context.SaveChangesAsync();
 
+            _logger.LogInformation("UpdateRecommendedIntake completed successfully.");
             return OperationResult<Unit>.Success(Unit.Value);
         }
         catch (DbUpdateException ex)
         {
+            _logger.LogError(ex, "Database update failed in UpdateRecommendedIntake.");
             return OperationResult<Unit>.Failure($"Database update failed: {ex.InnerException?.Message ?? ex.Message}");
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An unexpected error occurred in UpdateRecommendedIntake.");
             return OperationResult<Unit>.Failure($"An unexpected error occurred: {ex.Message}");
         }
     }
 
     public async Task<OperationResult<List<NutrientReportItem>>> GetNutrientReport()
     {
+        _logger.LogInformation("Starting GetNutrientReport.");
+
         try
         {
-            // Query for all nutrients that have a RecommendedIntake
+            _logger.LogDebug("Querying nutrients with RecommendedIntake.");
             var nutrients = await _context.Nutrients
                 .Include(n => n.RecommendedIntake)
                 .Include(n => n.CurrentConsumption)
                 .Where(n => n.RecommendedIntake != null)
                 .ToListAsync();
 
-            // Create NutrientReportItem DTOs
+            _logger.LogDebug("Creating NutrientReportItem DTOs for {Count} nutrients.", nutrients.Count);
             var reportItems = nutrients.Select(n => new NutrientReportItem
             {
                 NutrientId = n.NutrientID,
@@ -169,12 +193,13 @@ public class PersonalReportService : IPersonalReportService
                 ConsumedAmount = n.CurrentConsumption?.ConsumedAmount ?? 0
             }).ToList();
 
+            _logger.LogInformation("GetNutrientReport completed successfully.");
             return OperationResult<List<NutrientReportItem>>.Success(reportItems);
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "An error occurred while generating the nutrient report.");
             return OperationResult<List<NutrientReportItem>>.Failure($"An error occurred while generating the nutrient report: {ex.Message}");
         }
     }
-
 }
