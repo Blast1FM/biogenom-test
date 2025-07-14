@@ -1,4 +1,8 @@
 
+using biogenom_test.Data.Database;
+using biogenom_test.Services;
+using Microsoft.EntityFrameworkCore;
+
 namespace biogenom_test;
 
 public class Program
@@ -10,16 +14,20 @@ public class Program
         // Add services to the container.
 
         builder.Services.AddControllers();
+        builder.Services.AddDbContext<PersonalReportContext>(options =>
+            options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+        builder.Services.AddScoped<PersonalReportService>();
+        builder.Services.AddScoped<SupplementKitRecommendationService>();
         // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddOpenApi();
 
         var app = builder.Build();
 
-        // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
-        {
-            app.MapOpenApi();
-        }
+        app.MapOpenApi();
+        app.UseSwaggerUI(options =>
+            options.SwaggerEndpoint("/openapi/v1.json", "OpenAPI v1")
+        );
+        
 
         app.UseHttpsRedirection();
 

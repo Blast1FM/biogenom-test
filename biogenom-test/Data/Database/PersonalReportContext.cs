@@ -15,6 +15,8 @@ public class PersonalReportContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        NutrientSeeder.SeedData(modelBuilder);
+
         modelBuilder.Entity<RecommendedIntake>()
             .HasOne(ri => ri.Nutrient)
             .WithOne(n => n.RecommendedIntake)
